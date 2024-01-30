@@ -76,6 +76,8 @@ namespace Inventory.ViewModels
         public ICommand ValidateSqlConnectionCommand => new RelayCommand(OnValidateSqlConnection);
         public ICommand CreateDatabaseCommand => new RelayCommand(OnCreateDatabase);
         public ICommand SaveChangesCommand => new RelayCommand(OnSaveChanges);
+        public ICommand AddUserCommand => new RelayCommand(OnAddUser);
+        public ICommand DeleteUserCommand => new RelayCommand(OnDeleteUser);
 
         public SettingsArgs ViewModelArgs { get; private set; }
 
@@ -93,6 +95,18 @@ namespace Inventory.ViewModels
             return Task.CompletedTask;
         }
 
+        private async void OnAddUser()
+        {
+            IsBusy = true;
+            StatusMessage("Waiting adding user...");
+            var result = await SettingsService.AddUserAccountAsync();
+            IsBusy = false;
+
+        }
+        private void OnDeleteUser()
+        {
+
+        }
         private void UpdateProvider()
         {
             if (IsLocalProvider && !IsSqlProvider)

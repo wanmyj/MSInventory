@@ -40,5 +40,6 @@ namespace Inventory.Services
 
         Task<Result> ValidateConnectionAsync(string connectionString);
         Task<Result> CreateDabaseAsync(string connectionString);
+        Task<Result> AddUserAccountAsync();
     }
 }

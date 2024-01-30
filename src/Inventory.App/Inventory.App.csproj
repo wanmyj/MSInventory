@@ -315,6 +315,9 @@
     <Compile Include="Views\Settings\CreateDatabaseView.xaml.cs">
       <DependentUpon>CreateDatabaseView.xaml</DependentUpon>
     </Compile>
+    <Compile Include="Views\Settings\CreateUserView.xaml.cs">
+      <DependentUpon>CreateUserView.xaml</DependentUpon>
+    </Compile>
     <Compile Include="Views\Settings\SettingsView.xaml.cs">
       <DependentUpon>SettingsView.xaml</DependentUpon>
     </Compile>
@@ -651,6 +654,10 @@
       <SubType>Designer</SubType>
     </Page>
     <Page Include="Views\Settings\CreateDatabaseView.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="Views\Settings\CreateUserView.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>

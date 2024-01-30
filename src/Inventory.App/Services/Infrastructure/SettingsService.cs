@@ -87,6 +87,13 @@ namespace Inventory.Services
             return result;
         }
 
+        public async Task<Result> AddUserAccountAsync()
+        {
+            var dialog = new CreateUserView();
+            var res = await dialog.ShowAsync();
+
+            return dialog.Result;
+        }
         public async Task<Result> ValidateConnectionAsync(string connectionString)
         {
             var dialog = new ValidateConnectionView(connectionString);

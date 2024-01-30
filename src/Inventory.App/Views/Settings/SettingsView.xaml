@@ -22,6 +22,21 @@
                     <TextBlock><Hyperlink NavigateUri="https://github.com/Microsoft/InventorySample">https://github.com/Microsoft/InventorySample</Hyperlink></TextBlock>
                 </StackPanel>
 
+                <!-- add an adding user stackpanel -->
+                <StackPanel Margin="0,12">
+                    <TextBlock Margin="0,12" Text="Add/Delete User" Style="{StaticResource TitleTextBlockStyle}" />
+                    <TextBlock Text="Add or delete a user to login the App" />
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                        <Button Content="Add User"
+                                Command="{x:Bind ViewModel.AddUserCommand}"
+                                Margin="0,0,8,0"
+                                HorizontalAlignment="Stretch" />
+                        <Button Content="Delete User"
+                                Command="{x:Bind ViewModel.DeleteUserCommand}"
+                                HorizontalAlignment="Stretch" />
+                    </StackPanel>
+                </StackPanel>
+
                 <StackPanel Margin="0,12,0,0">
                     <TextBlock Margin="0,12" Text="Data Providers" Style="{StaticResource TitleTextBlockStyle}"  />
                     <TextBlock Text="Select and configure the Data Provider" />

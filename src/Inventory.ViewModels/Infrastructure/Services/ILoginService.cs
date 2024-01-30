@@ -22,11 +22,11 @@ namespace Inventory.Services
         bool IsAuthenticated { get; set; }
 
         Task<Result> SignInWithPasswordAsync(string userName, string password);
-
         bool IsWindowsHelloEnabled(string userName);
+#if ENABLE_WINDOWS_HELLO
         Task TrySetupWindowsHelloAsync(string userName);
         Task<Result> SignInWithWindowsHelloAsync();
-
+#endif
         void Logoff();
     }
 }

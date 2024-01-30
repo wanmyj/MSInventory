@@ -131,6 +131,7 @@ namespace Inventory.ViewModels
 
         public async void LoginWithWindowHello()
         {
+#if ENABLE_WINDOWS_HELLO
             IsBusy = true;
             var result = await LoginService.SignInWithWindowsHelloAsync();
             if (result.IsOk)
@@ -140,8 +141,8 @@ namespace Inventory.ViewModels
             }
             await DialogService.ShowAsync(result.Message, result.Description);
             IsBusy = false;
+#endif
         }
-
         private void EnterApplication()
         {
             if (ViewModelArgs.UserInfo.AccountName != UserName)

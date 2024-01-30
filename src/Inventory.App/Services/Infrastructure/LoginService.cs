@@ -19,6 +19,9 @@ using Windows.Storage.Streams;
 using Windows.Security.Credentials;
 using Windows.Security.Cryptography;
 using Windows.Security.Cryptography.Core;
+using System.Security.Cryptography;
+using System.IO;
+using System.Text;
 
 namespace Inventory.Services
 {
@@ -35,6 +38,10 @@ namespace Inventory.Services
         public IDialogService DialogService { get; }
 
         public bool IsAuthenticated { get; set; }
+        // generate a variable to store the filename for user account
+        private static readonly string AccountFileName = "useraccount.txt";
+        private static readonly string DefaultAdmin = "admin";
+        private static readonly string DefaultAdminPassword = "password";
 
         public bool IsWindowsHelloEnabled(string userName)
         {
@@ -48,14 +55,150 @@ namespace Inventory.Services
             return false;
         }
 
-        public Task<bool> SignInWithPasswordAsync(string userName, string password)
+        public Task<Result> SignInWithPasswordAsync(string userName, string password)
         {
-            // Perform authentication here.
-            // This sample accepts any user name and password.
+            // Verify the password by comparing the stored hash with the computed hash
+            Result verified = VerifyPassword(password, userName);
+            if (!verified.IsOk)
+            {
+                UpdateAuthenticationStatus(false);
+                return Task.FromResult(Result.Error(verified.Message, verified.Description));
+            }
+            UpdateAuthenticationStatus(true);
+            return Task.FromResult(Result.Ok());
+        }
+
+        // Create a local user account
+        public Task<bool> AddLocalAccountAsync(string userName, string password)
+        {
+            // make sure the user name is not empty or used
+            if (string.IsNullOrWhiteSpace(password) || string.IsNullOrWhiteSpace(userName))
+            {
+                DialogService.ShowAsync("User name or password is empty", "Please enter a valid user name and password.", "Ok");
+                return Task.FromResult(false);
+            }
+            if (File.Exists(AccountFileName))
+            {
+                string[] lines = File.ReadAllLines(AccountFileName);
+                for (int i = 0; i < lines.Length; i++)
+                {
+                    if (lines[i].Equals(userName))
+                    {
+                        DialogService.ShowAsync("User name is already used", "Please enter a different user name.", "Ok");
+                        return Task.FromResult(false);
+                    }
+                }
+            }
+            // Create a random salt value
+            byte[] salt = new byte[16];
+            using (var rng = RandomNumberGenerator.Create())
+            {
+                rng.GetBytes(salt);
+            }
+
+            // Hash the password with the salt using SHA256
+            byte[] hash = HashPasswordWithSalt(password, salt);
+
+            // Convert the hash to a base64 string for storage
+            string hashString = Convert.ToBase64String(hash);
+
+            // Save the hash and the salt to the local file
+            using (var writer = new StreamWriter(AccountFileName))
+            {
+                writer.WriteLine(userName); // Write the user name
+                writer.WriteLine(hashString); // Write the hash
+                writer.WriteLine(Convert.ToBase64String(salt)); // Write the salt
+            }
+
             UpdateAuthenticationStatus(true);
             return Task.FromResult(true);
         }
 
+        // A method that hashes a password with a salt using SHA256
+        private byte[] HashPasswordWithSalt(string password, byte[] salt)
+        {
+            // Convert the password to a byte array
+            byte[] passwordBytes = Encoding.UTF8.GetBytes(password);
+
+            // Create a SHA256 hash object
+            using (var sha256 = SHA256.Create())
+            {
+                // Combine the password and the salt
+                byte[] combinedBytes = new byte[passwordBytes.Length + salt.Length];
+                System.Buffer.BlockCopy(passwordBytes, 0, combinedBytes, 0, passwordBytes.Length);
+                System.Buffer.BlockCopy(salt, 0, combinedBytes, passwordBytes.Length, salt.Length);
+
+                // Compute the hash of the combined bytes
+                byte[] hash = sha256.ComputeHash(combinedBytes);
+
+                // Return the hash
+                return hash;
+            }
+        }
+
+        private Result VerifyPassword(string password, string userName)
+        {
+            System.Diagnostics.Debug.WriteLine("Verify: " + password);
+            if (userName == DefaultAdmin && password == DefaultAdminPassword)
+            {
+                return Result.Ok();
+            }
+            // If AccountFileName not exist, return false
+            if (!File.Exists(AccountFileName))
+            {
+                return Result.Error("Login failed", "Please use the Admin account to initialize");
+            }
+            // Read the hash and the salt from the file
+            string[] lines = File.ReadAllLines(AccountFileName);
+
+            // find the user name in the file and its corresponding hash and salt
+            for (int i = 0; i < lines.Length; i++)
+            {
+                if (lines[i].Equals(userName))
+                {
+                    string storedHash = lines[i + 1];
+                    string storedSalt = lines[i + 2];
+
+                    // Convert the hash and the salt to byte arrays
+                    byte[] hashBytes = Convert.FromBase64String(storedHash);
+                    byte[] saltBytes = Convert.FromBase64String(storedSalt);
+
+                    // Hash the password with the salt using SHA256
+                    byte[] computedHash = HashPasswordWithSalt(password, saltBytes);
+
+                    // Compare the stored hash with the computed hash
+                    if (!CompareHashes(hashBytes, computedHash))
+                    {
+                        return Result.Error("Password is incorrect.","Please enter a valid password.");
+                    }
+                    return Result.Ok();
+                }
+            }
+            return Result.Error("User name not found", "Please enter a valid user name.");
+        }
+
+        static private bool CompareHashes(byte[] hash1, byte[] hash2)
+        {
+            // Check if the hashes have the same length
+            if (hash1.Length != hash2.Length)
+            {
+                return false;
+            }
+
+            // Check if the hashes have the same content
+            for (int i = 0; i < hash1.Length; i++)
+            {
+                if (hash1[i] != hash2[i])
+                {
+                    return false;
+                }
+            }
+
+            // If no difference is found, the hashes are equal
+            return true;
+        }
+
+#if ENABLE_WINDOWS_HELLO
         public async Task<Result> SignInWithWindowsHelloAsync()
         {
             string userName = AppSettings.Current.UserName;
@@ -77,17 +220,6 @@ namespace Inventory.Services
                 return Result.Error("Windows Hello", $"Cannot sign in with Windows Hello: {retrieveResult.Status}");
             }
             return Result.Error("Windows Hello", "Windows Hello is not enabled for current user.");
-        }
-
-        public void Logoff()
-        {
-            UpdateAuthenticationStatus(false);
-        }
-
-        private void UpdateAuthenticationStatus(bool isAuthenticated)
-        {
-            IsAuthenticated = isAuthenticated;
-            MessageService.Send(this, "AuthenticationChanged", IsAuthenticated);
         }
 
         public async Task TrySetupWindowsHelloAsync(string userName)
@@ -185,6 +317,18 @@ namespace Inventory.Services
             //      - Certificate chain for attestation endorsement if available
             //      - Status code of the Key Attestation result : Included / retrieved later / retry type
             return Task.FromResult(true);
+        }
+
+#endif
+        public void Logoff()
+        {
+            UpdateAuthenticationStatus(false);
+        }
+
+        private void UpdateAuthenticationStatus(bool isAuthenticated)
+        {
+            IsAuthenticated = isAuthenticated;
+            MessageService.Send(this, "AuthenticationChanged", IsAuthenticated);
         }
     }
 }

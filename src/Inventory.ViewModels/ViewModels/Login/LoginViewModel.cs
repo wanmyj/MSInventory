@@ -58,14 +58,14 @@ namespace Inventory.ViewModels
         public string UserName
         {
             get { return _userName; }
-            set { Set(ref _userName, value); }
+            set { Set(ref _userName, value); System.Diagnostics.Debug.WriteLine("UserName changed: " + _userName);}
         }
 
         private string _password = "UserPassword";
         public string Password
         {
             get { return _password; }
-            set { Set(ref _password, value); }
+            set { Set(ref _password, value); System.Diagnostics.Debug.WriteLine("Password changed: " + _password);}
         }
 
         public ICommand ShowLoginWithPasswordCommand => new RelayCommand(ShowLoginWithPassword);
@@ -108,16 +108,22 @@ namespace Inventory.ViewModels
             var result = ValidateInput();
             if (result.IsOk)
             {
-                if (await LoginService.SignInWithPasswordAsync(UserName, Password))
+                Result loginResult = await LoginService.SignInWithPasswordAsync(UserName, Password);
+                if (loginResult.IsOk)
                 {
+#if ENABLE_WINDOWS_HELLO
+
                     if (!LoginService.IsWindowsHelloEnabled(UserName))
                     {
                         await LoginService.TrySetupWindowsHelloAsync(UserName);
                     }
+#endif
                     SettingsService.UserName = UserName;
                     EnterApplication();
                     return;
                 }
+                await DialogService.ShowAsync(loginResult.Message, loginResult.Description);
+                return;
             }
             await DialogService.ShowAsync(result.Message, result.Description);
             IsBusy = false;
